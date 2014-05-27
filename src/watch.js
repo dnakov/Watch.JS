@@ -12,7 +12,7 @@
 
 "use strict";
 (function (factory) {
-    if (typeof exports === 'object') {
+     if (typeof exports === 'object') {
         // Node. Does not work with strict CommonJS, but
         // only CommonJS-like enviroments that support module.exports,
         // like Node.
@@ -158,7 +158,7 @@
     };
 
 
-    var watchAll = function (obj, watcher, level, addNRemove) {
+    var watchAll = function (obj, watcher, level, addNRemove, path) {
 
         if ((typeof obj == "string") || (!(obj instanceof Object) && !isArray(obj))) { //accepts only objects and array (not string)
             return;
@@ -179,7 +179,7 @@
             }
         }
 
-        watchMany(obj, props, watcher, level, addNRemove); //watch all items of the props
+        watchMany(obj, props, watcher, level, addNRemove, path); //watch all items of the props
 
         if (addNRemove) {
             pushToLengthSubjects(obj, "$$watchlengthsubjectroot", watcher, level);
@@ -187,7 +187,7 @@
     };
 
 
-    var watchMany = function (obj, props, watcher, level, addNRemove) {
+    var watchMany = function (obj, props, watcher, level, addNRemove, path) {
 
         if ((typeof obj == "string") || (!(obj instanceof Object) && !isArray(obj))) { //accepts only objects and array (not string)
             return;
@@ -195,12 +195,12 @@
 
         for (var i=0; i<props.length; i++) { //watch each property
             var prop = props[i];
-            watchOne(obj, prop, watcher, level, addNRemove);
+            watchOne(obj, prop, watcher, level, addNRemove, path);
         }
 
     };
 
-    var watchOne = function (obj, prop, watcher, level, addNRemove) {
+    var watchOne = function (obj, prop, watcher, level, addNRemove, path) {
 
         if ((typeof obj == "string") || (!(obj instanceof Object) && !isArray(obj))) { //accepts only objects and array (not string)
             return;
@@ -211,10 +211,10 @@
         }
 
         if(obj[prop] != null && (level === undefined || level > 0)){
-            watchAll(obj[prop], watcher, level!==undefined? level-1 : level); //recursively watch all attributes of this
+            watchAll(obj[prop], watcher, level!==undefined? level-1 : level,null, path + '.' + prop); //recursively watch all attributes of this
         }
 
-        defineWatcher(obj, prop, watcher, level);
+        defineWatcher(obj, prop, watcher, level, path);
 
         if(addNRemove && (level === undefined || level > 0)){
             pushToLengthSubjects(obj, prop, watcher, level);
@@ -274,7 +274,7 @@
         }
     };
 
-    var defineWatcher = function (obj, prop, watcher, level) {
+    var defineWatcher = function (obj, prop, watcher, level, path) {
 
         var val = obj[prop];
 
@@ -282,6 +282,10 @@
 
         if (!obj.watchers) {
             defineProp(obj, "watchers", {});
+        }
+        
+        if (!obj._path) {
+            defineProp(obj, "_path", path);
         }
 
         if (!obj.watchers[prop]) {
@@ -342,7 +346,7 @@
     };
 
     // @todo code related to "watchFunctions" is certainly buggy
-    var methodNames = ['pop', 'push', 'reverse', 'shift', 'sort', 'slice', 'unshift'];
+    var methodNames = ['pop', 'push', 'reverse', 'shift', 'sort', 'slice', 'unshift', 'splice'];
     var defineArrayMethodWatcher = function (obj, prop, original, methodName) {
         defineProp(obj[prop], methodName, function () {
             var response = original.apply(obj[prop], arguments);
@@ -390,17 +394,19 @@
                 var difference = getObjDiff(subj.obj, subj.actual);
 
                 if(difference.added.length || difference.removed.length){
-                    if(difference.added.length){
-                        watchMany(subj.obj, difference.added, subj.watcher, subj.level - 1, true);
-                    }
+                    if(difference.added != difference.removed && (difference.added[0] != difference.removed[0])) {
+                        if(difference.added.length){
+                            watchMany(subj.obj, difference.added, subj.watcher, subj.level - 1, true);
+                        }
 
-                    subj.watcher.call(subj.obj, "root", "differentattr", difference, subj.actual);
+                        subj.watcher.call(subj.obj, "root", "differentattr", difference, subj.actual);
+                    }
                 }
                 subj.actual = clone(subj.obj);
 
 
             } else {
-
+                if(subj.obj[subj.prop] == null) return;
                 var difference = getObjDiff(subj.obj[subj.prop], subj.actual);
             
                 if(difference.added.length || difference.removed.length){
