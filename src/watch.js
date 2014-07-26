@@ -12,7 +12,7 @@
 
 "use strict";
 (function (factory) {
-     if (typeof exports === 'object') {
+    if (typeof exports === 'object') {
         // Node. Does not work with strict CommonJS, but
         // only CommonJS-like enviroments that support module.exports,
         // like Node.
@@ -107,9 +107,14 @@
     var defineGetAndSet = function (obj, propName, getter, setter) {
         try {
 
-            Object.observe(obj[propName], function(data){
-                setter(data); //TODO: adapt our callback data to match Object.observe data spec
-            }); 
+
+            Object.observe(obj, function(changes) {
+                changes.forEach(function(change) {
+                    if (change.name === propName) {
+                        setter(change.object[change.name]);
+                    }
+                });
+            });
 
         } catch(e) {
 
@@ -173,7 +178,11 @@
             }
         } else {
             for (var prop2 in obj) { //for each attribute if obj is an object
-                if (obj.hasOwnProperty(prop2)) {
+				if (prop2 == "$val") {
+					continue;
+				}
+
+                if (Object.prototype.hasOwnProperty.call(obj, prop2)) {
                     props.push(prop2); //put in the props
                 }
             }
@@ -209,7 +218,6 @@
         if(isFunction(obj[prop])) { //dont watch if it is a function
             return;
         }
-
         if(obj[prop] != null && (level === undefined || level > 0)){
             watchAll(obj[prop], watcher, level!==undefined? level-1 : level,null, path + '.' + prop); //recursively watch all attributes of this
         }
@@ -283,7 +291,7 @@
         if (!obj.watchers) {
             defineProp(obj, "watchers", {});
         }
-        
+
         if (!obj._path) {
             defineProp(obj, "_path", path);
         }
@@ -408,7 +416,7 @@
             } else {
                 if(subj.obj[subj.prop] == null) return;
                 var difference = getObjDiff(subj.obj[subj.prop], subj.actual);
-            
+
                 if(difference.added.length || difference.removed.length){
                     if(difference.added.length){
                         for (var j=0; j<subj.obj.watchers[subj.prop].length; j++) {
@@ -428,7 +436,7 @@
     };
 
     var pushToLengthSubjects = function(obj, prop, watcher, level){
-        
+
         var actual;
 
         if (prop === "$$watchlengthsubjectroot") {
